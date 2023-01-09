@@ -6,23 +6,19 @@ export class Sections {
   add(type,options) {
     const section = new Section(this,type,options);
     this.sections.add(section);
-    this.append(section.getOuterElement());
+    this.element.append(section.element);
     return section;
   }
 
   remove(section) {
     this.sections.delete(section);
-    this.removeChild(section.getOuterElement());
+    this.element.removeChild(section.element);
   }
 
   registerType(name,Class) {
     if (this.types[name]) throw new Error("section type already exists");
     this.types[name] = Class;
   }
-
-  getOuterElement() { return this.element; }
-  append(...elements) { this.element.append(...elements); }
-  removeChild(child) { this.element.removeChild(child); }
 }
 
 export class Section {
@@ -34,9 +30,6 @@ export class Section {
     this.options = options;
     this.instance = new this.sections.types[type](this,options)
   }
-
-  getOuterElement() { return this.element; }
-  append(...elements) { return this.element.append(...elements); }
 }
 
 /*

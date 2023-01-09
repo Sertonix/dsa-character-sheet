@@ -1,65 +1,43 @@
-import {ConfigManager} from "./config.js";
-import {HeroPluginManager} from "./plugin.js";
-import {StyleManager} from "./style.js";
-import {HorizontalBar} from "./bar.js";
+import {DataManager} from "./data.js";
 import {Sections} from "./section.js";
-import {safeJSONParse} from "./safe-json-parse.js";
-
-const FORMAT_VERSION = 1;
+import {StyleManager} from "./style.js";
+import {PluginManager} from "./plugin.js";
+import {CommandManager} from "./command.js";
 
 export class Character {
   element = {
     main: document.createElement("dsa-character"),
-    casing: document.createElement("dsa-character-casing"),
   };
-  style = new StyleManager();
-  topBar = new HorizontalBar();
   sections = new Sections();
-  bottomBar = new HorizontalBar();
-  plugins = new HeroPluginManager(this);
+  style = new StyleManager();
+  plugins = new PluginManager();
+  data = new DataManager();
+  commands = new CommandManager();
 
-  constructor({
-    config,
-    data = {},
-    formatVersion = FORMAT_VERSION,
-  } = {}) {
-    if (formatVersion !== FORMAT_VERSION) throw new Error(`Invalid format version! got ${formatVersion} expected ${FORMAT_VERSION}`);
-    this.data = data;
-    this.config = new ConfigManager(config);
-    this.element.casing.attachShadow({mode: "open"}).append(this.element.main);
-
-    this.topBar.getOuterElement().classList.add("dsa-character-top");
-    this.bottomBar.getOuterElement().classList.add("dsa-character-bottom");
-
-    this.append(
-      this.style.getOuterElement(),
-      this.topBar.getOuterElement(),
-      this.sections.getOuterElement(),
-      this.bottomBar.getOuterElement(),
-    );
+  constructor() {
+    for (const pos of ["top","center","bottom"]) {
+      const element = document.createElement("dsa-container");
+      element.setAttribute("axis","horizontal");
+      element.setAttribute("pos",pos);
+      this.element.main.append(element);
+      this.element[pos === "center" ? "horizontalCenter" : pos] = element;
+    }
+    for (const pos of ["left","center","right"]) {
+      const element = document.createElement("dsa-container");
+      element.setAttribute("axis","vertical");
+      element.setAttribute("pos",pos);
+      this.element.horizontalCenter.append(element);
+      this.element[pos] = element;
+    }
+    
+    this.element.center.append(this.sections.element);
+    this.element.main.append(this.style.element);
+    
+    this.commands.add("dsa:about", () => window.open("https://sertonix.github.io/dsa-character-sheet", "_blank")?.focus() );
+    this.commands.add("dsa:new", () => window.open(window.location.href, "_blank")?.focus() );
   }
 
   initialize() {
     this.plugins.initialize();
-  }
-
-  getOuterElement() { return this.element.casing; }
-  append(...elements) { this.element.main.append(...elements); }
-
-  export() {
-    return {
-      formatVersion: FORMAT_VERSION,
-      config: this.config.export(),
-      data: this.data,
-      // TODO tempData: {},
-    };
-  }
-
-  static from(raw) {
-    return new Character(
-      typeof raw === "string" ?
-        safeJSONParse(raw) :
-        raw
-    );
   }
 }

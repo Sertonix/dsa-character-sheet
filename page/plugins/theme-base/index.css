@@ -9,27 +9,34 @@ TODO color variables to allow themes and plugins styles to fit together
 }
 */
 
-body, dsa-character {
-  margin: 0;
-  padding: 0;
+dsa-character {
   line-height: 1; /* allows the use of em as 1 line high */
   font-family: monospace;
   background-color: black;
   color: white;
-}
-
-body {
-  min-height: 100vh;
-}
-
-dsa-characters {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 10px;
 }
 
-dsa-character-casing {
-  display: contents;
+dsa-container {
+  display: flex;
+  align-items: stretch;
+  overflow: auto;
+}
+
+dsa-container > * {
+  flex-shrink: 0;
+}
+
+dsa-container[pos=center] {
+  flex-grow: 1;
+}
+
+dsa-container[axis=vertical] {
+  flex-direction: column;
 }
 
 dsa-buttons {
@@ -38,44 +45,6 @@ dsa-buttons {
   justify-content: center;
   margin: 10px;
   gap: 5px;
-}
-
-dsa-character {
-  padding: 5px;
-  display: flex;
-  flex-direction: column;
-}
-
-dsa-style-manager {
-  display: none;
-}
-
-dsa-horizontal-bar {
-  display: flex;
-  align-items: stretch;
-  flex-wrap: wrap;
-  gap: 5px;
-  width: 100%;
-}
-
-dsa-horizontal-bar-e {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  flex-grow: 1;
-  gap: 3px;
-}
-
-dsa-horizontal-bar-e[pos=left] {
-  flex-direction: row;
-}
-
-dsa-horizontal-bar-e[pos=middle] {
-  justify-content: center;
-}
-
-dsa-horizontal-bar-e[pos=right] {
-  flex-direction: row-reverse;
 }
 
 dsa-button {

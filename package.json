@@ -4,7 +4,8 @@
   "description": "A manager for DSA characters",
   "repository": "https://github.com/Sertonix/dsa-character-sheet",
   "scripts": {
-    "start:server": "http-server ./page -c-1 -p 80 -P http://localhost/index? -d false -i false --cors"
+    "start:server": "http-server ./page -c-1 -p 80 -P http://localhost/index? -d false -i false --cors",
+    "bundle": "node ./bundle.js"
   },
   "author": "Sertonix",
   "license": "MIT",

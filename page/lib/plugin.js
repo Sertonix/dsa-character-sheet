@@ -1,31 +1,27 @@
 import {EventEmitter} from "./event.js";
-import {URI} from "./uri.js";
 
 export class PluginManager {
-  pluginClass = Plugin;
   plugins = new Map();
   events = new EventEmitter();
   defaultPlugins = [
-    "dsa-plugin:theme-base",
-    "dsa-plugin:theme-black-and-white", // TODO easily disable when different theme is used
-    "dsa-plugin:title",
-    "dsa-plugin:character-view-controls",
-    "dsa-plugin:import-export",
-    "dsa-plugin:attributes",
+    "http://localhost/plugins/theme-base/index.js",
+    "http://localhost/plugins/theme-black-and-white/index.js", // TODO easily disable when different theme is used
+    "http://localhost/plugins/title/index.js",
+    "http://localhost/plugins/tool-bar/index.js",
+    "http://localhost/plugins/import-export/index.js",
+    "http://localhost/plugins/command-palette/index.js",
+    // "attributes/index.js",
   ];
 
   initialize() {
-    this.addAll(...this.getInitialPlugins());
+    this.addAll(...this.defaultPlugins); // TODO move to data instead
   }
 
-  getInitialPlugins() {
-    return this.defaultPlugins;
-  }
-
-  add(uri) {
+  add(uri,load = true) {
     if (this.plugins.has(uri)) return this.plugins.get(uri);
-    const plugin = new this.pluginClass(this,uri);
+    const plugin = new Plugin(uri);
     this.plugins.set(uri,plugin);
+    if (load) plugin.load();
     this.events.emit("did-added-plugin", plugin);
     return plugin;
   }
@@ -33,9 +29,10 @@ export class PluginManager {
   remove(...uris) {
     for (const uri of uris) {
       if (!this.plugins.has(uri)) continue;
-      const plugin = this.plugins.get(uri);
       this.plugins.delete(uri);
-      this.events.emit("did-removed-plugin", uri);
+      this.plugins.get(uri).unload().then( () =>
+        this.events.emit("did-removed-plugin", uri),
+      );
     }
   }
 
@@ -49,82 +46,66 @@ export class PluginManager {
   onDidRemovedPlugin(callback) { return this.events.on( "did-removed-plugin", callback ); }
 }
 
-export class HeroPluginManager extends PluginManager {
-  pluginClass = HeroPlugin;
-
-  constructor(character) {
-    super();
-    this.character = character;
-  }
-
-  initialize() {
-    super.initialize();
-    this.character.config.onDidChange("dsa.plugins", (newURIs,oldURIs) => {
-      for (const oldURI of oldURIs) {
-        if (newURIs.includes(oldURI)) continue;
-        this.remove(oldURI);
-      }
-      for (const newURI of newURIs) {
-        if (!oldURIs.includes(newURI)) continue;
-        this.add(newURI);
-      }
-    });
-    this.character.config.onDidChange("dsa.plugins.default-enabled", enabled => {
-      if (enabled) {
-        this.addAll(...this.defaultPlugins);
-      } else {
-        this.remove(...this.defaultPlugins);
-      }
-    });
-  }
-
-  getInitialPlugins() {
-    return [
-      ...this.character.config.get("dsa.plugins.default-enabled") ? this.defaultPlugins : [],
-      ...this.character.config.get("dsa.plugins"),
-    ];
-  }
-}
-
 export class Plugin {
+  enabled = false;
+  enablePromise = undefined;
+  disablePromise = undefined;
   loaded = false;
-  events = new EventEmitter();
+  loadPromise = undefined;
+  exports = undefined;
+  style = undefined;
 
-  constructor(plugins,uri) {
-    this.plugins = plugins;
+  constructor(uri) {
     this.uri = uri;
-    this.load = import(dsa.resolveURI(this.uri)).then( this.handleImports.bind(this) );
   }
 
-  handleImports(exports) {
-    this.exports = exports;
-    this.loaded = true;
-    return this.handleFinishedImport();
+  enable() {
+    return this.enablePromise ||= this.makeEnablePromise();
+  }
+  
+  async makeEnablePromise() {
+    if (this.enabled) return;
+    if (this.disablePromise) {
+      this.disablePromise.stop = true;
+      await this.disablePromise;
+    }
+    if (this.enablePromise.stop) return this.enablePromise = undefined;
+    await this.load();
+    if (this.enablePromise.stop) return this.enablePromise = undefined;
+    await this.getExport("enable")?.(this);
+    this.enabled = true;
+    this.enablePromise = undefined;
+  }
+  
+  load() {
+    return this.loadPromise ||= this.makeLoadPromise();
   }
 
-  handleFinishedImport() {
-    this.getExport("add")?.();
+  async makeLoadPromise() {
+    this.exports = await import(this.uri);
     const styleURI = this.getExport("styleURI");
-    if (styleURI) dsa.style.set(`dsa-plugin:${this.uri}`,this.resolveStyleURI(styleURI));
-    return this;
+    if (styleURI) this.style = dsa.style.add(new URL(styleURI,this.uri));
+    this.loaded = true;
+  }
+  
+  disable() {
+    return this.disablePromise ||= this.makeDisablePromise();
+  }
+  
+  async makeDisablePromise() {
+    if (!this.enabled) return;
+    if (this.enablePromise) {
+      this.enablePromise.stop = true;
+      await this.enablePromise;
+    }
+    if (this.disablePromise.stop) return this.disablePromise = undefined;
+    await this.getExport("disable")?.();
+    this.enabled = false;
+    this.disablePromise = undefined;
   }
 
   getExport(name) {
+    if (!this.exports) throw new Error("no exports defined yet");
     return this.exports[name] ?? this.exports.default?.[name];
-  }
-
-  resolveStyleURI(uri) {
-    return dsa.resolveURI(URI.join(dsa.resolveURI(this.uri),uri));
-  }
-}
-
-export class HeroPlugin extends Plugin {
-  handleFinishedImport() {
-    const configSchema = this.getExport("configSchema");
-    if (configSchema) this.plugins.character.config.addSchema(configSchema);
-    this.getExport("addCharacter")?.(this.plugins.character);
-    const styleURI = this.getExport("styleURI");
-    if (styleURI) this.plugins.character.style.set(`dsa-plugin:${this.uri}`,this.resolveStyleURI(styleURI));
-    return this;
   }
 }

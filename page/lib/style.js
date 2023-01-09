@@ -1,22 +1,22 @@
 export class StyleManager {
-  styles = Object.create(null);
+  styles = new Set();
   element = document.createElement("dsa-style-manager");
-
-  set(id,uri) {
-    if (uri == null) {
-      this.styles[id].remove();
-      delete this.styles[id];
-      return;
-    }
-    if (this.styles[id] == null) {
-      const element = document.createElement("link");
-      element.setAttribute("rel","styleSheet");
-      this.append(element);
-      this.styles[id] = element;
-    }
-    this.styles[id].setAttribute("href",dsa.resolveURI(uri));
+  
+  constructor() {
+    this.element.style.setProperty("display","none");
   }
 
-  getOuterElement() { return this.element; }
-  append(...elements) { return this.element.append(...elements); }
+  add(uri) {
+    const element = document.createElement("link");
+    element.setAttribute("rel","styleSheet");
+    element.setAttribute("href",uri);
+    this.element.append(element);
+    this.styles.add(element);
+    return element;
+  }
+
+  remove(style) {
+    this.styles.delete(style);
+    style.remove();
+  }
 }
